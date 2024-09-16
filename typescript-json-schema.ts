@@ -1106,6 +1106,11 @@ export class JsonSchemaGenerator {
 
         const clazz = <ts.ClassDeclaration>node;
         const props = this.tc.getPropertiesOfType(clazzType).filter((prop) => {
+            if ((<any> prop).parent) {
+                if ((<any> prop).parent.escapedName !== (<any> node).symbol.escapedName) {
+                    return false;
+                }
+            }
             // filter never and undefined
             const propertyFlagType = this.tc.getTypeOfSymbolAtLocation(prop, node).getFlags();
             if (ts.TypeFlags.Never === propertyFlagType || ts.TypeFlags.Undefined === propertyFlagType) {
@@ -1493,6 +1498,20 @@ export class JsonSchemaGenerator {
                     // {} is TypeLiteral with no members. Need special case because it doesn't have declarations.
                     definition.type = "object";
                     definition.properties = {};
+                } else if (
+                    node &&
+                    (node.kind === ts.SyntaxKind.InterfaceDeclaration) &&
+                    (<any>node).heritageClauses && (<any>node).heritageClauses.length > 0
+                ) {
+                    const schemas: Definition[] = [];
+                    schemas.push({
+                        $ref: `${this.args.id}#/definitions/` + (<any>node).heritageClauses[0].types[0].expression.escapedText
+                    });
+                    schemas.push(this.getClassDefinition(typ, definition));
+                    returnedDefinition = {
+                      allOf: schemas
+                    };
+                    return returnedDefinition;
                 } else {
                     this.getClassDefinition(typ, definition);
                 }
